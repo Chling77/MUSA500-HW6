@@ -7,6 +7,42 @@ output: rmdformats::readthedown
 
 The aim of this Markdown is to demonstrate the use of various text analysis tools in R, including text clustering, word clouds and sentiment analysis.
 
+
+## Introduction
+Climate change has emerged as one of the most pressing global challenges of our time, with far-reaching implications for economies, ecosystems, and societies worldwide. The United Kingdom has played a pivotal role in addressing this issue, participating in significant international climate conferences, including the 26th to 28th Conference of the Parties (COP26-28) and the United Nations Framework Convention on Climate Change (UNFCCC). These gatherings have brought together leaders, policymakers, and experts from around the world to deliberate on strategies and commitments to mitigate climate change's impacts. The UK Parliament, as the supreme legislative body of the United Kingdom, has been instrumental in shaping the country's climate policy and influencing global climate initiatives. To gain valuable insights into the discussions, deliberations, and decisions made during these critical COP conferences, this report presents a comprehensive text data analysis of the UK Parliament Hansard debates concerning COP26, COP27, and COP28. By delving into the transcripts of these debates through text mining and NLP algorithms, we aim to explore the primary issues, concerns, positions, and policy considerations raised by Members of Parliament (MPs) surrounding COP26, COP27, and COP28. This will provide valuable insights that can inform future climate policy decisions and contribute to the broader public discourse on climate change.
+
+
+## Method
+
+First, we will collect edited transcripts of debates in the British Parliament, obtained from the UK Parliament website. These transcripts will then be transformed into a Corpus, a vast and unstructured collection of texts, typically stored and processed electronically, used for statistical analysis and hypothesis testing. Subsequently, we will refine the data by eliminating punctuation and common English stop words (e.g., "a," "to"), which are often frequent terms that do not provide substantial information. To facilitate further analysis, we will convert myCorpus into a Document-Term Matrix (DTM) format. This conversion enables us to create a histogram and tabulation, revealing the distribution of term frequencies across all terms.
+
+Next, we will generate a word cloud to visually represent the most frequently occurring terms. In this visualization, larger font sizes correspond to higher term frequencies. This graphical representation allows us to identify the prevailing topics and primary concerns addressed by the British government, providing us with deeper insights into the matter.
+
+Following this, we will employ K-means clustering to categorize the prominent keywords from the three COP conferences. Subsequently, we will explore the characteristics of each cluster by examining the frequency of occurrence of each word within those clusters. This comprehensive analysis will enhance our understanding of the COP topic.
+
+Additionally, we will conduct sentiment analysis on the COP text materials using the 'syuzhet' R package, which offers a variety of sentiment lexicons, also known as sentiment dictionaries. These lexicons contain words and phrases, each annotated with sentiment polarity information, indicating whether they convey positive, negative, or neutral emotions. It's worth noting that these lexicons intentionally exclude many words that are considered neutral, such as "hair," "purple," or "walk."
+
+The 'syuzhet' package includes several lexicons, each with its unique characteristics:
+
+NRC Lexicon: This lexicon, integrated into the 'syuzhet' package, features an extensive word list with annotations for various sentiment categories, including positivity, negativity, anger, fear, joy, sadness, and more. It simplifies sentiment analysis by linking words to specific emotional dimensions.
+
+AFINN Lexicon: Another 'syuzhet' lexicon, AFINN, relies on precomputed sentiment scores for English words. Each word in this lexicon is assigned a sentiment score, ranging from negative (-5) to positive (5), indicating the intensity of sentiment. Its simplicity makes it a popular choice for basic sentiment analysis tasks.
+
+Bing Lexicon: The Bing lexicon, also known as the Bing Liu lexicon, is a sentiment resource provided within the 'syuzhet' package. It categorizes words as either positive or negative based on their sentiment. It is commonly used for sentiment analysis applications and aids in determining text polarity.
+
+Syuzhet (Jockers) Lexicon: Specifically designed for the 'syuzhet' package, the Syuzhet lexicon adopts a distinctive approach to sentiment analysis. It focuses on capturing sentiment by analyzing shifts in emotional intensity over time within text. Unlike the NRC, AFINN, and Bing lexicons, the Syuzhet lexicon delves into temporal sentiment dynamics, offering a unique perspective on emotional trajectories within textual content. It may prove valuable in analyses focused on temporal sentiment changes.
+
+In sentiment analysis, we utilize these lexicons to assess the sentiment expressed in an entire text body. This typically involves aggregating sentiment scores, often achieved through averaging or summing, derived from all the words present in the text. However, it is important to note that for lengthy texts, the presence of positive and negative terms can sometimes counterbalance each other. Consequently, shorter texts, such as a few sentences or paragraphs, tend to yield more accurate sentiment assessments.
+
+
+
+
+
+
+
+
+
+
 ## Data Description
 
 ```{r setup, include=FALSE}
