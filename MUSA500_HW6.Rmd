@@ -1,0 +1,356 @@
+---
+title: "MUSA500 Homework6: UK Parliament Debate Text Analysis"
+author: "Hang Zhao, Chen Ling, Jiahang Li"
+date: "`r Sys.Date()`"
+output: 
+  html_document:
+    toc: true
+    toc_float: true
+    code_folding: hide
+    number_sections: true
+    code_download: true
+    theme: united
+    highlight: espresso
+editor_options:
+  markdown:
+    wrap: 72
+---
+
+The aim of this Markdown is to demonstrate the use of various text analysis tools in R, including text clustering, word clouds and sentiment analysis.
+
+## Data Description
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+We used UK Parliament Hansard text data (https://hansard.parliament.uk/) debates about COP28, COP27, and COP26. 
+
+First, let's load the required `R` libraries.
+```{r libraries, message=FALSE, warning=FALSE}
+library(wordcloud)
+library(text)
+library(tm)
+library(SnowballC)
+library(words)
+library(NbClust)
+library(stringr)
+library(dplyr)
+library(syuzhet)
+```
+
+```{r load-data}
+# Define the URLs of the text documents
+urls <- c(
+  "https://hansard.parliament.uk/debates/GetDebateAsText/39676651-9FA2-454B-A05B-D1D23B75FB22",
+  "https://hansard.parliament.uk/debates/GetDebateAsText/204B5685-BD66-4EEC-BDB0-5EE73A5846E8",
+  "https://hansard.parliament.uk/debates/GetDebateAsText/198EFBE0-3374-4F00-99F4-3515A64B9457",
+  "https://hansard.parliament.uk/debates/GetDebateAsText/2CC67BC9-B03A-4C96-A7A5-C29BCC7FC3BF",
+  "https://hansard.parliament.uk/debates/GetDebateAsText/ECBBB60C-F873-4077-AA0D-27D10CC2E577",
+  "https://hansard.parliament.uk/debates/GetDebateAsText/2188C6EE-35BF-43DB-9D2C-69DB528204DF",
+  "https://hansard.parliament.uk/debates/GetDebateAsText/0E2A470D-B60F-4B84-B29D-FE071BC59034",
+  "https://hansard.parliament.uk/debates/GetDebateAsText/3B965B09-7B13-4BCF-8FFB-3D59FF3F491B",
+  "https://hansard.parliament.uk/debates/GetDebateAsText/D1AA404D-7507-4FC4-A0FA-60F35BFBFBCD",
+  "https://hansard.parliament.uk/debates/GetDebateAsText/860DD443-8429-4D81-A024-D3FADD23408C",
+  "https://hansard.parliament.uk/debates/GetDebateAsText/7407A360-CA4A-4FB1-9879-11572CF48F16",
+  "https://hansard.parliament.uk/debates/GetDebateAsText/FB410219-51B9-42CF-BE01-F38BB01A57E4",
+  "https://hansard.parliament.uk/debates/GetDebateAsText/E3949BD5-C7FB-4C7F-ACD9-FEE001BDB4BB",
+  "https://hansard.parliament.uk/debates/GetDebateAsText/C957568D-E718-4E78-A7A0-B8765A3F2244",
+  "https://hansard.parliament.uk/debates/GetDebateAsText/E13EA182-97EE-42DE-BE98-064545D624B4",
+  "https://hansard.parliament.uk/debates/GetDebateAsText/4F58A758-4DBB-4556-8C2D-23526EDA64E4",
+  "https://hansard.parliament.uk/debates/GetDebateAsText/C65FB515-B251-44E0-91E2-14C251691ABA",
+  "https://hansard.parliament.uk/debates/GetDebateAsText/62F788DE-F993-4109-881E-DFBF06CCAB87",
+  "https://hansard.parliament.uk/debates/GetDebateAsText/073B487A-769A-4BDA-8F79-A09170F00FD6",
+  "https://hansard.parliament.uk/debates/GetDebateAsText/8BA807E3-3010-4058-B0E4-1C55B56D4AFB",
+  "https://hansard.parliament.uk/debates/GetDebateAsText/B3619DAF-A61C-4575-A883-888F60DF1054",
+  "https://hansard.parliament.uk/debates/GetDebateAsText/8CA8CAD8-37AD-4DD6-84D1-BAEAA9F9D7D8"
+)
+```
+
+## Data Preprocessing 
+
+The first thing we want to do is to convert the text in all of these URLS into a Corpus. A text corpus (plural: _corpora_) "is a large and unstructured set of texts (nowadays usually electronically stored and processed) used to do statistical analysis and hypothesis testing, checking occurrences or validating linguistic rules within a specific language territory."
+
+```{r warning=FALSE, message=FALSE, cache=FALSE}
+# Load and preprocess all text documents
+myCorpus <- tm::VCorpus(VectorSource(sapply(urls, readLines)))
+
+# Convert everything to lower case
+myCorpus <- tm_map(myCorpus, content_transformer(tolower))
+```
+
+```{r warning=FALSE, message=FALSE, cache=FALSE}
+#cat(content(myCorpus[[1]])[50:90], sep = "\n")
+```
+
+```{r warning=FALSE, message=FALSE, cache=FALSE}
+#converting a bunch of special characters (e.g., **@**, **/**, **]**, **$**) to a space and by removing apostrophes
+#     Defining the toSpace function
+toSpace <- content_transformer(function(x, pattern) gsub(pattern, " ", x))
+#     Defining the remApostrophe function
+remApostrophe <- content_transformer(function(x,pattern) gsub(pattern, "", x))
+#     Removing special characters
+myCorpus <- tm_map(myCorpus, toSpace, "@")
+myCorpus <- tm_map(myCorpus, toSpace, "/")
+myCorpus <- tm_map(myCorpus, toSpace, "]")
+myCorpus <- tm_map(myCorpus, toSpace, "$")
+myCorpus <- tm_map(myCorpus, toSpace, "—")
+myCorpus <- tm_map(myCorpus, toSpace, "‐")
+myCorpus <- tm_map(myCorpus, toSpace, "”")
+myCorpus <- tm_map(myCorpus, toSpace, "‘")
+myCorpus <- tm_map(myCorpus, toSpace, "“")
+myCorpus <- tm_map(myCorpus, toSpace, "‘")
+myCorpus <- tm_map(myCorpus, remApostrophe, "’")
+```
+
+```{r warning=FALSE, message=FALSE, cache=FALSE}
+#cat(content(myCorpus[[1]])[50:90], sep = "\n")
+```
+
+```{r warning=FALSE, message=FALSE, cache=FALSE}
+#remove numbers and punctuation.
+myCorpus <- tm::tm_map(myCorpus, removeNumbers)
+myCorpus <- tm_map(myCorpus, removePunctuation)
+#cat(content(myCorpus[[1]])[50:90], sep = "\n")
+```
+
+```{r warning=FALSE, message=FALSE, cache=FALSE}
+#look at a list of English stop words (e.g., _a_, _to_) that we can remove from the documents
+stopwords("english")
+myCorpus <- tm_map(myCorpus, removeWords, stopwords("english"))
+#cat(content(myCorpus[[1]])[50:90], sep = "\n")
+```
+
+```{r warning=FALSE, message=FALSE, cache=FALSE}
+#remove additional (i.e., self-defined) stop words
+myCorpus <- tm_map(myCorpus, removeWords,c("parliament", "hon", "minister", "cop", "lord", 
+                                           "gentleman", "friend"))
+#cat(content(myCorpus[[1]])[50:90], sep = "\n")
+```
+
+```{r warning=FALSE, message=FALSE, cache=FALSE, eval=FALSE}
+#This removes common word suffixes and endings like _es_, _ed_, _ing_, etc. Alternatively, there is lemmatization, which groups together different inflected forms of the same word
+myCorpus <- tm_map(myCorpus, stemDocument)
+#cat(content(myCorpus[[1]])[50:90], sep = "\n")
+```
+
+## Document Term Matrix
+```{r warning=FALSE, message=FALSE, cache=FALSE}
+# convert it to a document term matrix (DTM), where the documents are rows, and terms are columns
+dtm_cleaned <- DocumentTermMatrix(myCorpus)
+tm::inspect(dtm_cleaned)
+```
+
+```{r warning=FALSE, message=FALSE, cache=FALSE}
+# convert the DTM to a matrix.
+m <- as.matrix(dtm_cleaned)
+dim(m)
+colnames(m) <- dtm_cleaned$dimnames$Terms
+rownames(m) <- c("COP 28 Dec 14", "COP 28 Nov 29", "COP28 Lord Nov 28", "COP 28 Nov 16", "COP 28 Lord May 17", "COP 27 Commit Lord Nov 24", "COP 27 Nov 21", "COP 27 Lord Nov 15", "COP 27 Nov 9", "COP 27 Lord Oct 27", "COP 27 Sep 6", "COP 26 July 20", "COP 27 Lord Oct 27", "COP 26 March 2", "COP 26 Dec 1", "COP 26 Nov 18/15", "COP 26 Lord Nov 16", "COP 26 & G20 2021 Nov 3", "COP 26 Air Pollution Nov 2", "COP 26 Oct 21", "COP 26 Lord May 25", "COP 26 March 10")
+```
+
+```{r warning=FALSE, message=FALSE, cache=FALSE}
+# histogram and tabulation can show us the distribution of term frequency across all terms
+cs <- as.matrix(colSums(m))             #How many times each term appears across all documents (texts)
+rownames(cs) <- dtm_cleaned$dimnames$Terms
+
+hist(cs, breaks=100)                    #Let's look at some histograms/tabulations/word cloud of total term appearance. 
+tab <- as.matrix(table(cs))
+wordcloud(myCorpus, min.freq=100)
+```
+
+```{r warning=FALSE, message=FALSE, cache=FALSE}
+# remove all variables where the column sum is less than 200
+variables_to_remove <- cs < 350
+
+# Subset matrix frame, excluding those variables
+m_subset <- m[, !variables_to_remove]
+```
+
+```{r warning=FALSE, message=FALSE, cache=FALSE}
+#additional data preparation for the cluster analysis
+m_fin <- m_subset/rowSums(m)
+#m_fin <- m/rowSums(m)
+
+#Let's scale (normalize) each of the variables (relative frequency)
+m_scale <- scale(m_fin)
+```
+
+
+## Text Clustering
+
+before performing the k-means analysis on the scaled (normalized) relative frequencies of words, we need to identify the optimal number of clusters. We do this using the Scree Plot and the `NbClust` package in R.
+
+```{r warning=FALSE, message=FALSE, cache=FALSE}
+# Before performing the k-means analysis on the scaled (normalized) relative frequencies of words, we need to identify the optimal number of clusters
+# Scree Plot
+wss <- (nrow(m_scale)-1)*sum(apply(m_scale,2,var))
+for (i in 2:20) wss[i] <- sum(kmeans(m_scale, 
+                                     centers=i)$withinss)
+plot(1:20, wss, type="b", xlab="Number of Clusters",
+     ylab="Within groups sum of squares")
+```
+
+```{r warning=FALSE, message=FALSE, cache=FALSE, eval=FALSE}
+#NbClust approach
+set.seed(1234)
+nc <- NbClust(m_scale, min.nc=2, max.nc=15, method="kmeans", index="all")
+#table(nc$Best.n[1,])
+par(mfrow=c(1,1)) 
+barplot(table(nc$Best.n[1,]),
+        xlab="Numer of Clusters", ylab="Number of Criteria",
+        main="Number of Clusters Chosen by 26 Criteria")
+```
+
+```{r warning=FALSE, message=FALSE, cache=FALSE}
+k_means_results <- kmeans(m_scale, 3, 30)
+```
+
+```{r warning=FALSE, message=FALSE, cache=FALSE}
+k_means_results$cluster
+k_means_results$size
+```
+
+```{r warning=FALSE, message=FALSE, cache=FALSE}
+# number of times each of the terms appears in each cluster
+word_totals_by_cluster <- round(aggregate(m_subset, by=list(cluster=k_means_results$cluster), sum),1)
+
+#Let's plot the results!
+#Decrease font size and rotate x-axis labels vertically
+par(cex.axis = 0.7)  # Adjust the font size
+par(las = 2)        # Rotate labels vertically
+
+barplot(as.matrix(word_totals_by_cluster[-1]),
+        beside = TRUE,
+        col = c("#AEE0F1", "#AEF1B7", "#F1F1AE"),
+        legend.text = TRUE,
+        args.legend = list(x = "topright"))
+
+# Add labels to the x-axis and y-axis. Here, the first cluster is in blue and the second one is in green.
+title(xlab = "Cluster")
+title(ylab = "Sum")
+
+# Add a title to the plot
+title(main = "Bar Plot of Sums by Group")
+```
+
+
+## Sentiment Analysis
+
+The `syuzhet` package in R has several sentiment lexicons in it. A sentiment lexicon, also known as a sentiment dictionary, is a collection of words or phrases annotated with sentiment polarity information. It associates each word or phrase with a sentiment score indicating its positive, negative, or neutral sentiment. Sentiment lexicons are commonly used in sentiment analysis tasks to determine the sentiment or emotional tone expressed in text. A lot of the words are omitted from these lexicons, because they are neutral (e.g., _hair_, _purple_, _walk_). 
+
+The lexicons in the `syuzhet` package include:
+
+1. NRC Lexicon: The NRC (National Research Council) lexicon is a sentiment lexicon included in the `syuzhet` package. It contains a comprehensive list of words annotated with different sentiment categories, such as positive, negative, anger, fear, joy, sadness, and more. The NRC lexicon enables sentiment analysis by associating words with specific emotional dimensions.
+
+2. AFINN Lexicon: The AFINN lexicon is another sentiment lexicon available in `syuzhet`. It is based on a list of pre-computed sentiment scores for English words. Each word in the lexicon is assigned a score ranging from negative (-5) to positive (5), indicating its sentiment intensity. This lexicon is relatively simple and easy to use, making it popular for basic sentiment analysis tasks.
+
+3. Bing Lexicon: The Bing lexicon, also known as the Bing Liu lexicon, is a sentiment lexicon provided by the `syuzhet` package. It consists of words categorized as either positive or negative based on their sentiment. The Bing lexicon is often used in sentiment analysis applications and can help in determining the polarity of text.
+
+4. Syuzhet (Jockers) Lexicon: The Syuzhet lexicon is a sentiment lexicon specifically designed for the `syuzhet` package. It aims to capture sentiment by analyzing changes in the emotional intensity of a text over time. Unlike the NRC, AFINN, and Bing lexicons, the Syuzhet lexicon focuses on the temporal dynamics of sentiment, providing a unique perspective on the emotional trajectory within a piece of text. It may lend itself well to analyses presented here: https://www.tidytextmining.com/sentiment.html.
+
+These lexicons within the `syuzhet` package offer different approaches to sentiment analysis, ranging from basic word-based scoring to more complex temporal sentiment analysis techniques. Each lexicon has its own strengths and characteristics, allowing users to choose the most suitable approach based on their specific needs and requirements.
+
+We use sentiment analysis to examine the sentiment in an entire body of text. This is often done by aggregating (i.e., averaging or summing) sentiment scores of all the words in the text. One issue is that for longer texts, the positive and negative terms often tend to wash each other out. Therefore, shorter texts of a few sentences or paragraphs work well.
+
+Another thing to keep in mind is that this approach doesn't take into consideration the negative terms preceding a word (e.g., _NOT good_) or sarcasm (e.g., _I'm fired? Well that's just GREAT!_). Additional data preprocessing may be necessary for this approach to work as intended, though we will skip it here. Note that removal of stop words and some of the other pre-processing done earlier is generally unnecessary for sentiment analysis, because a lot of these terms (e.g., _a_, _the_, _through_, _such_) are neutral terms and won't affect the sentiment.
+
+Let's take a look at the four sentiment lexicons mentioned above. Here, we will print the first 20 terms of each of the lexicons.
+
+```{r warning=FALSE, message=FALSE, cache=FALSE}
+nrc <- syuzhet::get_sentiment_dictionary(dictionary="nrc")
+head(nrc, n=20L)
+afinn <- syuzhet::get_sentiment_dictionary(dictionary="afinn")
+head(afinn, n=20L)
+bing <- syuzhet::get_sentiment_dictionary(dictionary="bing")
+head(bing, n=20L)
+syuzhet <- syuzhet::get_sentiment_dictionary(dictionary="syuzhet")
+head(syuzhet, n=20L)
+```
+
+```{r warning=FALSE, message=FALSE, cache=FALSE}
+# `nrc` lexicon
+get_nrc_sentiment("gorgeous")
+```
+
+```{r warning=FALSE, message=FALSE, cache=FALSE}
+#`get_nrc_sentiment` command obtains the sentiment score for each word in 'COP28 Dec' that wasn't removed in the cleaning process above
+COP28_Dec <- as.data.frame(m[1,])
+COP28_Dec$Term <- as.vector(rownames(COP28_Dec))
+colnames(COP28_Dec)[1] = "Term_Frequency"
+rownames(COP28_Dec) <- 1:nrow(COP28_Dec)
+
+nrc_sentiment <- get_nrc_sentiment(COP28_Dec$Term)
+```
+
+```{r warning=FALSE, message=FALSE, cache=FALSE}
+# combine the original data frame and the sentiment counts
+COP28_Dec_Sentiment <- cbind(COP28_Dec, nrc_sentiment)
+```
+
+```{r warning=FALSE, message=FALSE, cache=FALSE}
+# multiply the sentiment by the frequency of the term
+# Select the columns to be multiplied (last ten columns)
+cols_to_multiply <- names(COP28_Dec_Sentiment)[3:12]
+
+# Multiply the last ten columns (sentiments) by the first column (Term_Frequency)
+COP28_Dec_Sentiment[, cols_to_multiply] <- COP28_Dec_Sentiment[, cols_to_multiply] * COP28_Dec_Sentiment$Term_Frequency
+```
+
+```{r warning=FALSE, message=FALSE, cache=FALSE}
+# total prevalence of each sentiment in the text by summing each column and creating a bar plot
+COP28_Dec_Sentiment_Total <- t(as.matrix(colSums(COP28_Dec_Sentiment[,-1:-2])))
+barplot(COP28_Dec_Sentiment_Total, las=2, ylab='Count', main='Sentiment Scores')
+```
+
+Note that this can be done for each of the books, and then the total sentiment scores (ideally, weighted by the number of terms in each book and then normalized) can be subjected to a cluster analysis. This way, we can see if we can group the books based on the sentiments expressed, rather than the most frequently occurring terms themselves. This will be skipped in this Markdown.
+
+```{r warning=FALSE, message=FALSE, cache=FALSE}
+#Now, let's play around with some of the other lexicons. Specifically, we will use the `get_sentiment` command to get the scores for each of the terms using each dictionary, and save the output to the original `COP28 Dec` data frame.
+COP28_Dec$Syuzhet <- as.matrix(get_sentiment(COP28_Dec$Term, method="syuzhet"))
+hist(COP28_Dec$Syuzhet)
+COP28_Dec$Bing <- as.matrix(get_sentiment(COP28_Dec$Term, method="bing"))
+hist(COP28_Dec$Bing)
+COP28_Dec$AFINN <- as.matrix(get_sentiment(COP28_Dec$Term, method="afinn"))
+hist(COP28_Dec$AFINN)
+COP28_Dec$NRC <- as.matrix(get_sentiment(COP28_Dec$Term, method="nrc"))   #There are Negative and Positive sentiments in the NRC output above.
+hist(COP28_Dec$NRC)
+
+```
+
+```{r warning=FALSE, message=FALSE, cache=FALSE}
+#compare the results from the different lexicons by assigning a value of -1 to all terms that have a negative sentiment, 0 to all terms that have a neutral sentiment, and 1 to all terms that have a positive sentiment
+sentiment_columns <- COP28_Dec[ , 3:6]
+sentiment_columns <- data.frame(lapply(sentiment_columns, sign))
+sentiment_columns <- data.frame(lapply(sentiment_columns, as.factor))
+```
+
+Now, let's see the prevalence of _unique_ negative, neutral terms (here, we are talking about _unique_ terms because we are not weighing them by how often they appear in the document).
+
+```{r warning=FALSE, message=FALSE, cache=FALSE}
+#Raw frequencies
+sapply(sentiment_columns, function(x) if("factor" %in% class(x)) {table(x)})
+#Proportions
+sapply(sentiment_columns, function(x) if("factor" %in% class(x)) {prop.table(table(x))})
+```
+
+We can see that in general, most of the terms are neutral, with about 2-6% of terms being positive and 4-12% of the terms being negative, depending on which lexicon we use. 
+
+
+## References
+
+1. Hill, Chelsey. 2023. "Sentiment Analysis (Lexicons)". Rstudio-Pubs-Static.S3.Amazonaws.Com. https://rstudio-pubs-static.s3.amazonaws.com/676279_2fa8c2a7a3da4e7089e24442758e9d1b.html.
+
+2. "Sentiment Analysis In R | R-Bloggers". 2021. R-Bloggers. https://www.r-bloggers.com/2021/05/sentiment-analysis-in-r-3/.
+
+3. Robinson, Julia. 2023. "2 Sentiment Analysis With Tidy Data | Text Mining With R". Tidytextmining.Com. https://www.tidytextmining.com/sentiment.html.
+
+4. "Text Mining: Sentiment Analysis · AFIT Data Science Lab R Programming Guide ". 2023. Afit-R.Github.Io. https://afit-r.github.io/sentiment_analysis.
+
+5. "TDM (Term Document Matrix) And DTM (Document Term Matrix)". 2023. Medium. https://medium.com/analytics-vidhya/tdm-term-document-matrix-and-dtm-document-term-matrix-8b07c58957e2.
+
+6. "Text Clustering With R: An Introduction For Data Scientists". 2018. Medium. https://medium.com/@SAPCAI/text-clustering-with-r-an-introduction-for-data-scientists-c406e7454e76.
+
+7. "Introductory Tutorial To Text Clustering With R". 2023. Rstudio-Pubs-Static.S3.Amazonaws.Com. https://rstudio-pubs-static.s3.amazonaws.com/445820_c6663e5a79874afdae826669a9499413.html.
+
+8. "Library Guides: Text Mining & Text Analysis: Language Corpora". 2023. Guides.Library.Uq.Edu.Au. https://guides.library.uq.edu.au/research-techniques/text-mining-analysis/language-corpora.
